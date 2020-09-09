@@ -7,7 +7,7 @@
 **이 외의 기능은 추가할 생각이 없습니다**
 
 ## 예제
-```pydocstring
+```py
 import light_koreanbots as lkb
 import discord
 
