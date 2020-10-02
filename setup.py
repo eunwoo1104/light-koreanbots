@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="UTF-8") as f:
 
 setuptools.setup(
     name="light-koreanbots",
-    version="1.0.1",
+    version="1.0.2",
     author="eunwoo1104",
     author_email="sions04@naver.com",
     description="(비공식) Koreanbots에 길드수 업데이트만 하는 모듈입니다.",
