@@ -25,7 +25,7 @@ import aiohttp
 import asyncio
 import logging
 
-__version__ = "1.0.1"
+__version__ = "1.0.2"
 
 
 class LKBClient:
@@ -68,6 +68,9 @@ class LKBClient:
                 if ret["code"] == 200:
                     self.before = len(self.bot.guilds)
                     self.logger.info("Guild count post success.")
+                elif ret["code"] == 400:
+                    self.before = len(self.bot.guilds)
+                    self.logger.error(f"Failed guild post count with code 400. Updated last guild count. Message: {ret['message']}")
                 elif ret["code"] == 429:
                     self.logger.debug("Rate limited, skipping.")
                 else:
