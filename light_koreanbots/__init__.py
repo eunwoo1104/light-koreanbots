@@ -25,7 +25,7 @@ import aiohttp
 import asyncio
 import logging
 
-__version__ = "1.0.2"
+__version__ = "1.1.0"
 
 
 class LKBClient:
@@ -68,9 +68,6 @@ class LKBClient:
                 if ret["code"] == 200:
                     self.before = len(self.bot.guilds)
                     self.logger.info("Guild count post success.")
-                elif ret["code"] == 400:
-                    self.before = len(self.bot.guilds)
-                    self.logger.error(f"Failed guild post count with code 400. Updated last guild count. Message: {ret['message']}")
                 elif ret["code"] == 429:
                     self.logger.debug("Rate limited, skipping.")
                 else:
@@ -78,6 +75,15 @@ class LKBClient:
 
     async def __update(self):
         await self.bot.wait_for("ready")
+        async with aiohttp.ClientSession() as session:
+            async with session.get(self.base_url.replace("servers", "get/") + str(self.bot.user.id)) as resp:
+                ret = await resp.json()
+        if ret["code"] != 200:
+            self.logger.error(f"Failed getting guild count from KOREANBOTS with code {ret['code']}; Guild count update canceled.\n"
+                              f"Message: {ret['message']}")
+            return
+        self.before = int(ret["data"]["servers"])
+        self.logger.debug(f"Got guild count from KOREANBOTS: {self.before}")
         while not self.bot.is_closed():
             await self.update()
             await asyncio.sleep(60)
