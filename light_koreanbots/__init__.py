@@ -1,7 +1,7 @@
 """
 MIT License
 
-Copyright (c) 2020 eunwoo1104
+Copyright (c) 2020-2021 eunwoo1104
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -25,7 +25,7 @@ import aiohttp
 import asyncio
 import logging
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 
 
 class LKBClient:
@@ -36,17 +36,18 @@ class LKBClient:
     :param token: str. Koreanbots 토큰입니다.
     :param loop: asyncio 이벤트 루프입니다. 꼭 넣을 필요는 없습니다. 기본값은 asyncio.get_event_loop() 입니다.
     :param run_update: bool. 만약에 `False`일 경우 업데이트 태스크가 생성되지 않습니다. 기본값은 True 입니다.
-    :param use_v2: bool. 나중을 위한 코드입니다. 지금은 기본값인 `False`로 둬야 합니다.
+    :param use_v1: bool. V1 API를 사용할지를 결정합니다. 되도록이면 기본값인 ``False``로 설정하세요.
     """
     base_url_v1 = "https://api.koreanbots.dev/v1/bots/servers"
-    base_url_v2 = "https://api.koreanbots.dev/v2/bots/servers" # v2 준비용
+    base_url_v2 = "https://api.koreanbots.dev/v2/bots/"  # v2 준비용
 
-    def __init__(self, *, bot, token, loop=asyncio.get_event_loop(), run_update: bool = True, use_v2: bool = False):
+    def __init__(self, *, bot, token, loop=asyncio.get_event_loop(), run_update: bool = True, use_v1: bool = False):
         self.bot = bot
         self.token = token
         self.loop = loop
         self.logger = logging.getLogger('discord')
-        self.base_url = self.base_url_v2 if use_v2 else self.base_url_v1
+        self.base_url = self.base_url_v2 if not use_v1 else self.base_url_v1
+        self.use_v1 = use_v1
         self.before = 0
         if run_update:
             self.loop.create_task(self.__update())
@@ -60,10 +61,10 @@ class LKBClient:
         if self.before == len(self.bot.guilds):
             self.logger.debug("Same guild count. Canceled.")
             return
-        header = {"Content-Type": "	application/json", "token": self.token}
+        header = {"Authorization" if not self.use_v1 else "token": self.token, "Content-Type": "application/json"}
         body = {"servers": len(self.bot.guilds)}
         async with aiohttp.ClientSession() as session:
-            async with session.post(self.base_url, headers=header, json=body) as resp:
+            async with session.post(self.base_url+str(self.bot.user.id)+"/stats" if not self.use_v1 else self.base_url, headers=header, json=body) as resp:
                 ret = await resp.json()
                 if ret["code"] == 200:
                     self.before = len(self.bot.guilds)
@@ -75,15 +76,20 @@ class LKBClient:
 
     async def __update(self):
         await self.bot.wait_for("ready")
-        async with aiohttp.ClientSession() as session:
-            async with session.get(self.base_url.replace("servers", "get/") + str(self.bot.user.id)) as resp:
-                ret = await resp.json()
-        if ret["code"] != 200:
-            self.logger.error(f"Failed getting guild count from KOREANBOTS with code {ret['code']}; Guild count update canceled.\n"
-                              f"Message: {ret['message']}")
-            return
-        self.before = int(ret["data"]["servers"])
-        self.logger.debug(f"Got guild count from KOREANBOTS: {self.before}")
+        if self.use_v1:
+            self.logger.info("Using V1 API, skipping requesting current guild count...")
+        else:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(self.base_url+str(self.bot.user.id)) as resp:
+                    ret = await resp.json()
+            if ret["code"] != 200:
+                self.logger.error(
+                    f"Failed getting guild count from KOREANBOTS with code {ret['code']}; Guild count update canceled.\n"
+                    f"Message: {ret['message']}")
+                return
+            self.before = int(ret["data"]["servers"])
+            self.logger.debug(f"Got guild count from KOREANBOTS: {self.before}")
+            print(self.before)
         while not self.bot.is_closed():
             await self.update()
             await asyncio.sleep(60)
