@@ -89,7 +89,6 @@ class LKBClient:
                 return
             self.before = int(ret["data"]["servers"])
             self.logger.debug(f"Got guild count from KOREANBOTS: {self.before}")
-            print(self.before)
         while not self.bot.is_closed():
             await self.update()
             await asyncio.sleep(60)
